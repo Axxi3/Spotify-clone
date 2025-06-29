@@ -226,7 +226,7 @@ export default function SpotifyMusicPlayer() {
       <StatusBar barStyle="light-content" />
 
       {/* Header */}
-      <View style={tw`flex-row items-center justify-between px-6 pt-12 pb-4`}>
+      <View style={tw`flex-row items-center justify-between px-6 pt-3 pb-4`}>
         <TouchableOpacity>
           <ChevronDown size={28} color={tw.color('white')} />
         </TouchableOpacity>

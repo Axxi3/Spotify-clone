@@ -138,9 +138,7 @@ const SearchPage: React.FC = () => {
   return (
     <SafeAreaView style={tw`flex-1 bg-[#202020] pt-[15px]`}>
       <View style={tw`flex-row items-center justify-between px-5 py-4 border-b border-gray-800`}>
-        <View style={tw`w-10 h-10 rounded-full bg-green-500 justify-center items-center`}>
-          <Text style={tw`text-xl`}>🎵</Text>
-        </View>
+       
         <Text style={tw`text-white text-[19px] font-bold flex-1 text-center mx-5`}>
           Search
         </Text>
