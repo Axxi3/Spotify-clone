@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Audio } from 'expo-av';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import tw from 'twrnc';
 import {
@@ -32,11 +32,15 @@ import {
 
 import { Song } from '@/src/constants/services/Models';
 import { usePlayerStore } from '../constants/services/playerStore';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const LIKED_SONGS_KEY = 'liked_songs';
 
 export default function SpotifyMusicPlayer() {
+  // IMPORTANT: Move router to the top with other hooks
+  const router = useRouter();
+  
   const {
     currentTrack,
     setTrack,
@@ -78,7 +82,9 @@ export default function SpotifyMusicPlayer() {
         playThroughEarpieceAndroid: false,
       });
       await loadLikedSongs();
-      await loadAudio(track.audioUrl);
+      if (track?.audioUrl) {
+        await loadAudio(track.audioUrl);
+      }
     };
 
     setup();
@@ -87,9 +93,17 @@ export default function SpotifyMusicPlayer() {
     };
   }, []);
 
+  // Fixed: Added dependency on currentTrackIndex to handle track changes
   useEffect(() => {
-    setTrack(track);
-    checkIfSongIsLiked(track);
+    if (track) {
+      setTrack(track);
+      checkIfSongIsLiked(track);
+      
+      // Load new audio when track index changes (but not on initial load)
+      if (!isInitialLoading && track.audioUrl) {
+        loadAudio(track.audioUrl);
+      }
+    }
   }, [currentTrackIndex, likedSongs]);
 
   // Load liked songs from AsyncStorage
@@ -117,11 +131,9 @@ export default function SpotifyMusicPlayer() {
       let updatedLikedSongs: Song[];
       
       if (isLiked) {
-        // Remove from liked songs
         updatedLikedSongs = likedSongs.filter(song => song.id !== track.id);
         setIsLiked(false);
       } else {
-        // Add to liked songs
         updatedLikedSongs = [...likedSongs, track];
         setIsLiked(true);
       }
@@ -129,7 +141,6 @@ export default function SpotifyMusicPlayer() {
       setLikedSongs(updatedLikedSongs);
       await AsyncStorage.setItem(LIKED_SONGS_KEY, JSON.stringify(updatedLikedSongs));
       
-      // Show feedback to user
       Alert.alert(
         isLiked ? 'Removed from Liked Songs' : 'Added to Liked Songs',
         isLiked ? `"${track.title}" removed from your liked songs` : `"${track.title}" added to your liked songs`,
@@ -144,27 +155,42 @@ export default function SpotifyMusicPlayer() {
 
   const loadAudio = async (uri: string) => {
     try {
-      setIsInitialLoading(true);
-      if (sound) await sound.unloadAsync();
+      setIsLoading(true); // Show loading when switching tracks
+      
+      // Unload previous sound
+      if (sound) {
+        await sound.unloadAsync();
+        setSound(null);
+      }
+
+      // Reset audio state
+      setCurrentTime(0);
+      setDuration(0);
 
       const { sound: newSound, status } = await Audio.Sound.createAsync(
         { uri },
-        { shouldPlay: true },
+        { shouldPlay: true }, // Auto-play the new track
         onPlaybackStatusUpdate
       );
 
       setSound(newSound);
-      setDuration(status.durationMillis || 0);
-      setIsInitialLoading(false);
+      if (status.isLoaded) {
+        setDuration(status.durationMillis || 0);
+        setIsPlaying(true);
+      }
+      
     } catch (error) {
       console.error('Audio load error', error);
+      Alert.alert('Error', 'Failed to load audio track');
+    } finally {
+      setIsLoading(false);
       setIsInitialLoading(false);
     }
   };
 
   const onPlaybackStatusUpdate = (status: any) => {
     if (status.isLoaded) {
-      setCurrentTime(status.positionMillis);
+      setCurrentTime(status.positionMillis || 0);
       setIsPlaying(status.isPlaying);
 
       if (status.didJustFinish) {
@@ -173,36 +199,76 @@ export default function SpotifyMusicPlayer() {
     }
   };
 
+  // Fixed and improved handleClose function
+  const handleClose = () => {
+    console.log('Closing music player...'); // Debug log
+    console.log('Router canGoBack:', router.canGoBack?.());
+    
+    try {
+      // Check if we can go back
+      if (router.canGoBack && router.canGoBack()) {
+        console.log('Going back...');
+        router.back();
+      } else {
+        console.log('Cannot go back, navigating to home...');
+        // Navigate to your main tab route - adjust this path as needed
+        router.push('/(tabs)');
+      }
+    } catch (error) {
+      console.error('Error closing player:', error);
+      // Ultimate fallback - force navigation to main screen
+      try {
+        router.replace('/(tabs)');
+      } catch (fallbackError) {
+        console.error('Fallback navigation failed:', fallbackError);
+        // If all else fails, dismiss the modal (if it's presented as modal)
+        router.dismiss?.();
+      }
+    }
+  };
+
   const handleTrackEnd = () => {
     if (currentTrackIndex < tracks.length - 1) {
       skipToNext();
     } else {
+      // Loop back to first track or stop
+      setCurrentTrackIndex(0);
       setIsPlaying(false);
     }
   };
 
   const togglePlayPause = async () => {
     if (!sound) return;
-    const status = await sound.getStatusAsync();
-    if (status.isPlaying) {
-      await sound.pauseAsync();
-      setIsPlaying(false);
-    } else {
-      await sound.playAsync();
-      setIsPlaying(true);
+    
+    try {
+      const status = await sound.getStatusAsync();
+      if (status.isLoaded) {
+        if (status.isPlaying) {
+          await sound.pauseAsync();
+          setIsPlaying(false);
+        } else {
+          await sound.playAsync();
+          setIsPlaying(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling play/pause:', error);
     }
   };
 
-  const skipToNext = async () => {
-    const nextIndex = (currentTrackIndex + 1) % tracks.length;
-    setCurrentTrackIndex(nextIndex);
-    await loadAudio(tracks[nextIndex].audioUrl);
+  // Fixed: Simplified skip functions
+  const skipToNext = () => {
+    if (tracks.length > 1) {
+      const nextIndex = (currentTrackIndex + 1) % tracks.length;
+      setCurrentTrackIndex(nextIndex);
+    }
   };
 
-  const skipToPrevious = async () => {
-    const prevIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
-    setCurrentTrackIndex(prevIndex);
-    await loadAudio(tracks[prevIndex].audioUrl);
+  const skipToPrevious = () => {
+    if (tracks.length > 1) {
+      const prevIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
+      setCurrentTrackIndex(prevIndex);
+    }
   };
 
   const formatTime = (millis: number) => {
@@ -212,6 +278,7 @@ export default function SpotifyMusicPlayer() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  // Show loading screen only during initial load
   if (isInitialLoading) {
     return (
       <View style={tw`flex-1 bg-black items-center justify-center`}>
@@ -221,25 +288,45 @@ export default function SpotifyMusicPlayer() {
     );
   }
 
+  // Handle case where no track is available
+  if (!track) {
+    return (
+      <View style={tw`flex-1 bg-black items-center justify-center`}>
+        <Text style={tw`text-white text-lg`}>No track available</Text>
+        <TouchableOpacity 
+          onPress={handleClose}
+          style={tw`mt-4 bg-green-500 px-6 py-3 rounded-full`}
+        >
+          <Text style={tw`text-black font-bold`}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
-    <View style={tw`flex-1 bg-black`}>
+    <SafeAreaProvider style={tw`flex-1 bg-black pt-[20px]`}>
       <StatusBar barStyle="light-content" />
 
       {/* Header */}
       <View style={tw`flex-row items-center justify-between px-6 pt-3 pb-4`}>
-        <TouchableOpacity>
-          <ChevronDown size={28} color={tw.color('white')} />
+        <TouchableOpacity 
+          onPress={handleClose}
+          style={tw`p-2 -ml-2`} // Negative margin to maintain visual alignment
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }} // Increase touch area
+          activeOpacity={0.7}
+        >
+          <ChevronDown size={28} color="white" />
         </TouchableOpacity>
         <View style={tw`items-center flex-1`}>
           <Text style={tw`text-gray-400 text-xs font-medium tracking-wide`}>
-            BASED ON YOUR INTEREST IN
+            PLAYING {`${currentTrackIndex + 1}`} OF {tracks.length}
           </Text>
-          <Text style={tw`text-white text-sm font-medium`}>
-            {track.album || 'Unknown Album'}
+          <Text style={tw`text-white text-sm font-medium`} numberOfLines={1}>
+            {track.title || 'Unknown Album'}
           </Text>
         </View>
-        <TouchableOpacity>
-          <MoreHorizontal size={24} color={tw.color('white')} />
+        <TouchableOpacity style={tw`p-2 -mr-2`}>
+          <MoreHorizontal size={24} color="white" />
         </TouchableOpacity>
       </View>
 
@@ -247,10 +334,10 @@ export default function SpotifyMusicPlayer() {
         <View style={tw`mx-6 mb-8`}>
           <View style={tw`bg-white rounded-lg p-6 shadow-lg`}>
             <View style={tw`items-center mb-4`}>
-              <Text style={tw`text-black text-lg font-bold mb-1`}>
+              <Text style={tw`text-black text-lg font-bold mb-1`} numberOfLines={2}>
                 {track.title.toUpperCase()}
               </Text>
-              <Text style={tw`text-gray-600 text-sm font-medium tracking-wide`}>
+              <Text style={tw`text-gray-600 text-sm font-medium tracking-wide`} numberOfLines={1}>
                 {track.album || 'Unknown Album'}
               </Text>
             </View>
@@ -262,7 +349,7 @@ export default function SpotifyMusicPlayer() {
             />
 
             <View style={tw`items-end`}>
-              <Text style={tw`text-black text-sm font-medium`}>
+              <Text style={tw`text-black text-sm font-medium`} numberOfLines={1}>
                 {track.artist.toUpperCase()}
               </Text>
             </View>
@@ -272,12 +359,12 @@ export default function SpotifyMusicPlayer() {
         <View style={tw`px-6 mb-8`}>
           <View style={tw`flex-row items-center justify-between mb-4`}>
             <View style={tw`flex-1`}>
-              <Text style={tw`text-white text-xl font-bold mb-1`}>
+              <Text style={tw`text-white text-xl font-bold mb-1`} numberOfLines={1}>
                 {track.title}
               </Text>
               <View style={tw`flex-row items-center`}>
                 <View style={tw`w-3 h-3 bg-green-500 rounded-full mr-2`} />
-                <Text style={tw`text-gray-300 text-base`}>
+                <Text style={tw`text-gray-300 text-base`} numberOfLines={1}>
                   {track.artist}
                 </Text>
               </View>
@@ -287,6 +374,7 @@ export default function SpotifyMusicPlayer() {
               <TouchableOpacity 
                 style={tw`mr-6`}
                 onPress={toggleLike}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Heart 
                   size={24} 
@@ -294,28 +382,32 @@ export default function SpotifyMusicPlayer() {
                   fill={isLiked ? '#1DB954' : 'transparent'}
                 />
               </TouchableOpacity>
-              <TouchableOpacity>
-                <Plus size={24} color={tw.color('white')} />
+              <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Plus size={24} color="white" />
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={tw`mb-6 w-full`}>
-           <Slider
-  style={tw`w-full mb-2`}
-  minimumValue={0}
-  maximumValue={duration}
-  value={currentTime}
-  minimumTrackTintColor="#ffffff"
-  maximumTrackTintColor="#4b5563" // tailwind's gray-700
-  thumbTintColor="#ffffff"
-  onSlidingComplete={async (value) => {
-    if (sound) {
-      await sound.setPositionAsync(value);
-      setCurrentTime(value);
-    }
-  }}
-/>
+            <Slider
+              style={tw`w-full mb-2`}
+              minimumValue={0}
+              maximumValue={duration}
+              value={currentTime}
+              minimumTrackTintColor="#ffffff"
+              maximumTrackTintColor="#4b5563"
+              thumbTintColor="#ffffff"
+              onSlidingComplete={async (value) => {
+                if (sound) {
+                  try {
+                    await sound.setPositionAsync(value);
+                    setCurrentTime(value);
+                  } catch (error) {
+                    console.error('Error seeking:', error);
+                  }
+                }
+              }}
+            />
             <View style={tw`flex-row justify-between`}>
               <Text style={tw`text-gray-400 text-sm`}>
                 {formatTime(currentTime)}
@@ -327,34 +419,52 @@ export default function SpotifyMusicPlayer() {
           </View>
 
           <View style={tw`flex-row items-center justify-between mb-8`}>
-            <TouchableOpacity onPress={() => setIsShuffled(!isShuffled)}>
-              <Shuffle size={20} color={isShuffled ? tw.color('green-500') : tw.color('gray-400')} />
+            <TouchableOpacity 
+              onPress={() => setIsShuffled(!isShuffled)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Shuffle size={20} color={isShuffled ? '#1DB954' : '#9CA3AF'} />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={skipToPrevious} disabled={isLoading}>
-              <SkipBack size={32} color={isLoading ? tw.color('gray-600') : tw.color('white')} />
+            <TouchableOpacity 
+              onPress={skipToPrevious} 
+              disabled={isLoading || tracks.length <= 1}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <SkipBack 
+                size={32} 
+                color={isLoading || tracks.length <= 1 ? '#4B5563' : 'white'} 
+              />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={tw`bg-white rounded-full p-4 items-center justify-center`}
               onPress={togglePlayPause}
               disabled={isLoading}
+              activeOpacity={0.8}
             >
               {isLoading ? (
                 <ActivityIndicator size={32} color="#22c55e" />
               ) : isPlaying ? (
-                <Pause size={32} color={tw.color('black')} />
+                <Pause size={32} color="black" />
               ) : (
-                <Play size={32} color={tw.color('black')} style={tw`ml-1`} />
+                <Play size={32} color="black" style={tw`ml-1`} />
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={skipToNext} disabled={isLoading}>
-              <SkipForward size={32} color={isLoading ? tw.color('gray-600') : tw.color('white')} />
+            <TouchableOpacity 
+              onPress={skipToNext} 
+              disabled={isLoading || tracks.length <= 1}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <SkipForward 
+                size={32} 
+                color={isLoading || tracks.length <= 1 ? '#4B5563' : 'white'} 
+              />
             </TouchableOpacity>
 
-            <TouchableOpacity>
-              <Clock size={20} color={tw.color('gray-400')} />
+            <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Clock size={20} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
 
@@ -369,16 +479,19 @@ export default function SpotifyMusicPlayer() {
             </View>
 
             <View style={tw`flex-row items-center`}>
-              <TouchableOpacity style={tw`mr-6`}>
-                <Share size={20} color={tw.color('white')} />
+              <TouchableOpacity 
+                style={tw`mr-6`}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Share size={20} color="white" />
               </TouchableOpacity>
-              <TouchableOpacity>
-                <Menu size={20} color={tw.color('white')} />
+              <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Menu size={20} color="white" />
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaProvider>
   );
 }

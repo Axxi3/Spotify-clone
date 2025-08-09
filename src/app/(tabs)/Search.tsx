@@ -26,6 +26,7 @@ const SearchPage: React.FC = () => {
   const [searchHistory, setSearchHistory] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
+  const [error, setError] = useState(''); // Added error state
 
   // Load search history on component mount
   useEffect(() => {
@@ -62,18 +63,26 @@ const SearchPage: React.FC = () => {
     if (!query.trim()) {
       setSearchResults([]);
       setShowHistory(true);
+      setError('');
       return;
     }
 
     setIsLoading(true);
     setShowHistory(false);
+    setError('');
 
     try {
       const results = await searchSongs(query);
       setSearchResults(results);
+      
+      // Show message if no results found
+      if (results.length === 0) {
+        setError('No songs found matching your search');
+      }
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
+      setError('Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +136,7 @@ const SearchPage: React.FC = () => {
   const renderEmptyState = () => (
     <View style={tw`flex-1 justify-center items-center py-15`}>
       <Text style={tw`text-white text-lg font-medium mb-2`}>
-        {showHistory ? 'No search history yet' : 'No results found'}
+        {showHistory ? 'No search history yet' : error || 'No results found'}
       </Text>
       <Text style={tw`text-gray-400 text-sm text-center`}>
         {showHistory ? 'Start searching for songs!' : 'Try a different search term'}
@@ -138,7 +147,6 @@ const SearchPage: React.FC = () => {
   return (
     <SafeAreaView style={tw`flex-1 bg-[#202020] pt-[15px]`}>
       <View style={tw`flex-row items-center justify-between px-5 py-4 border-b border-gray-800`}>
-       
         <Text style={tw`text-white text-[19px] font-bold flex-1 text-center mx-5`}>
           Search
         </Text>
@@ -158,11 +166,13 @@ const SearchPage: React.FC = () => {
             value={searchQuery}
             onChangeText={(text) => {
               setSearchQuery(text);
+              // Debounce search for better performance
               if (text.trim()) {
                 handleSearch(text);
               } else {
                 setSearchResults([]);
                 setShowHistory(true);
+                setError('');
               }
             }}
             returnKeyType="search"
@@ -174,6 +184,7 @@ const SearchPage: React.FC = () => {
                 setSearchQuery('');
                 setSearchResults([]);
                 setShowHistory(true);
+                setError('');
               }}
             >
               <Text style={tw`text-gray-400 text-base ml-3`}>✕</Text>

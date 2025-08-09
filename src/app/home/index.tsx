@@ -11,35 +11,34 @@ import tailwind from "twrnc";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-  fetchTopAlbums,
   fetchTopTracks,
-  fetchTopArtists,
-  fetchTracksByGenre,
+  fetchPopSongs,
+  fetchRockSongs,
+  fetchRomanticSongs,
+  fetchCuteSongs,
+  fetchHorrorSongs,
+  fetchCountrySongs,
+  fetchReggaeSongs,
+  fetchBluesSongs,
+  fetchFolkSongs,
 } from "@/src/constants/services/API";
-import { Album, Artist, Song } from "@/src/constants/services/Models";
+import { Song } from "@/src/constants/services/Models";
 import SongCard from "@/src/components/SongCard";
-import AlbumCard from "@/src/components/AlbumCard";
-import ArtistCard from "@/src/components/ArtistCard";
 import { useRouter } from "expo-router";
 
 const Index = () => {
   const [songs, setSongs] = useState<Song[]>([]);
-  const [lofi, setlofiSongs] = useState<Song[]>([]);
-  const [romantic, setromantic] = useState<Song[]>([]);
-  const [pop, setpop] = useState<Song[]>([]);
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [topartist, setTopArtist] = useState<Artist[]>([]);
+  const [popSongs, setPopSongs] = useState<Song[]>([]);
+  const [rockSongs, setRockSongs] = useState<Song[]>([]);
+  const [romanticSongs, setRomanticSongs] = useState<Song[]>([]);
+  const [cuteSongs, setCuteSongs] = useState<Song[]>([]);
+  const [horrorSongs, setHorrorSongs] = useState<Song[]>([]);
+  const [countrySongs, setCountrySongs] = useState<Song[]>([]);
+  const [reggaeSongs, setReggaeSongs] = useState<Song[]>([]);
+  const [bluesSongs, setBluesSongs] = useState<Song[]>([]);
+  const [folkSongs, setFolkSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rock, setRock] = useState<Song[]>([]);
-  const [electronic, setElectronic] = useState<Song[]>([]);
-  const [jazz, setJazz] = useState<Song[]>([]);
-  const [hiphop, setHipHop] = useState<Song[]>([]);
-  const [chillout, setChillout] = useState<Song[]>([]);
-  const [classical, setClassical] = useState<Song[]>([]);
-  const [indie, setIndie] = useState<Song[]>([]);
-  const [instrumental, setInstrumental] = useState<Song[]>([]);
   const router = useRouter();
-
 
   const handlePress = (song: Song) => {
     const songArray = [song]; // wrap single song into an array
@@ -47,48 +46,55 @@ const Index = () => {
     router.push(`/musicplayer?songs=${encodedSongs}`);
   };
 
-
   useEffect(() => {
     const loadSongs = async () => {
-      const fetchedSongs = await fetchTopTracks();
-      const fetchedAlbums = await fetchTopAlbums();
-      const fetchedArtists = await fetchTopArtists();
+      try {
+        // Fetch all song categories
+        const [
+          fetchedTopTracks,
+          fetchedPopSongs,
+          fetchedRockSongs,
+          fetchedRomanticSongs,
+          fetchedCuteSongs,
+          fetchedHorrorSongs,
+          fetchedCountrySongs,
+          fetchedReggaeSongs,
+          fetchedBluesSongs,
+          fetchedFolkSongs,
+        ] = await Promise.all([
+          fetchTopTracks(),
+          fetchPopSongs(),
+          fetchRockSongs(),
+          fetchRomanticSongs(),
+          fetchCuteSongs(),
+          fetchHorrorSongs(),
+          fetchCountrySongs(),
+          fetchReggaeSongs(),
+          fetchBluesSongs(),
+          fetchFolkSongs(),
+        ]);
 
-      const lofiTracks = await fetchTracksByGenre("lofi");
-      const romanticTracks = await fetchTracksByGenre("romantic");
-      const popTracks = await fetchTracksByGenre("pop");
+        // Set all state variables
+        setSongs(fetchedTopTracks);
+        setPopSongs(fetchedPopSongs);
+        setRockSongs(fetchedRockSongs);
+        setRomanticSongs(fetchedRomanticSongs);
+        setCuteSongs(fetchedCuteSongs);
+        setHorrorSongs(fetchedHorrorSongs);
+        setCountrySongs(fetchedCountrySongs);
+        setReggaeSongs(fetchedReggaeSongs);
+        setBluesSongs(fetchedBluesSongs);
+        setFolkSongs(fetchedFolkSongs);
 
-      const rockTracks = await fetchTracksByGenre("rock");
-      const electronicTracks = await fetchTracksByGenre("electronic");
-      const jazzTracks = await fetchTracksByGenre("jazz");
-      const hiphopTracks = await fetchTracksByGenre("hiphop");
-      const chilloutTracks = await fetchTracksByGenre("chillout");
-      const classicalTracks = await fetchTracksByGenre("classical");
-      const indieTracks = await fetchTracksByGenre("indie");
-      const instrumentalTracks = await fetchTracksByGenre("instrumental");
-
-      setSongs(fetchedSongs);
-      setAlbums(fetchedAlbums);
-      setTopArtist(fetchedArtists);
-      setlofiSongs(lofiTracks);
-      setromantic(romanticTracks);
-      setpop(popTracks);
-
-      setRock(rockTracks);
-      setElectronic(electronicTracks);
-      setJazz(jazzTracks);
-      setHipHop(hiphopTracks);
-      setChillout(chilloutTracks);
-      setClassical(classicalTracks);
-      setIndie(indieTracks);
-      setInstrumental(instrumentalTracks);
-
-      setLoading(false);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error loading songs:", error);
+        setLoading(false);
+      }
     };
 
     loadSongs();
   }, []);
-
 
   const greetingMessage = () => {
     const hour = new Date().getHours();
@@ -156,13 +162,12 @@ const Index = () => {
         </Pressable>
       </View>
 
-      {/* Liked Songs and Hiphops */}
+      {/* Liked Songs and Popular */}
       <View style={tailwind`flex-row items-center justify-between`}>
-       <Pressable 
-  onPress={() => router.push("/(tabs)/Liked")}
-  style={tailwind`flex-row items-center gap-[10px] flex-1 my-[10px] mx-[4px] bg-[#202020] rounded-[4px] z-3`}
->
-
+        <Pressable 
+          onPress={() => router.push("/(tabs)/Liked")}
+          style={tailwind`flex-row items-center gap-[10px] flex-1 my-[10px] mx-[4px] bg-[#202020] rounded-[4px] z-3`}
+        >
           <LinearGradient
             colors={["#33006f", "#FFFFFF"]}
             style={tailwind`w-[55px] h-[55px] items-center justify-center rounded-[4px]`}
@@ -183,7 +188,7 @@ const Index = () => {
           />
           <View>
             <Text style={tailwind`text-white text-[13px] font-bold ml-2`}>
-              Hiphops
+              Popular Mix
             </Text>
           </View>
         </View>
@@ -195,11 +200,10 @@ const Index = () => {
           <Pressable onPress={() => handlePress(item)} key={index} style={tailwind`w-[48%]`}>
             {renderItem({ item })}
           </Pressable>
-
         ))}
       </View>
 
-      {/* Top Songs */}
+      {/* Your Top Songs */}
       <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
         Your Top Songs
       </Text>
@@ -215,54 +219,7 @@ const Index = () => {
         ))}
       </ScrollView>
 
-      {/* Top Albums */}
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Your Top Albums
-      </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={tailwind`mt-[10px]`}
-      >
-        {albums.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <AlbumCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Your charts for Lofi
-      </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={tailwind`mt-2`}
-      >
-        {lofi.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <SongCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Celebrate song with the one
-      </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={tailwind`mt-2`}
-      >
-        {romantic.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <SongCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-
+      {/* Pop Songs */}
       <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
         Pop these songs
       </Text>
@@ -271,117 +228,116 @@ const Index = () => {
         showsHorizontalScrollIndicator={false}
         style={tailwind`mt-2`}
       >
-        {pop.map((item, index) => (
+        {popSongs.map((item, index) => (
           <View key={index} style={tailwind`mr-4`}>
             <SongCard item={item} />
           </View>
         ))}
       </ScrollView>
 
+      {/* Rock Songs */}
       <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
         Rock Vibes
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
-        {rock.map((item, index) => (
+        {rockSongs.map((item, index) => (
           <View key={index} style={tailwind`mr-4`}>
             <SongCard item={item} />
           </View>
         ))}
       </ScrollView>
 
+      {/* Romantic Songs */}
       <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Electronic Beats
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
-        {electronic.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <SongCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Smooth Jazz
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
-        {jazz.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <SongCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Hip-Hop Hits
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
-        {hiphop.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <SongCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Chillout Essentials
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
-        {chillout.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <SongCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Classical Collection
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
-        {classical.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <SongCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Indie Spotlight
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
-        {indie.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <SongCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Instrumental Moods
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
-        {instrumental.map((item, index) => (
-          <View key={index} style={tailwind`mr-4`}>
-            <SongCard item={item} />
-          </View>
-        ))}
-      </ScrollView>
-
-
-      {/* Top Artists
-      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
-        Your Top Artist
+        Celebrate song with the one
       </Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={tailwind`mt-[10px]`}
+        style={tailwind`mt-2`}
       >
-        {topartist.map((item, index) => (
+        {romanticSongs.map((item, index) => (
           <View key={index} style={tailwind`mr-4`}>
-            <ArtistCard item={item} />
+            <SongCard item={item} />
           </View>
         ))}
-      </ScrollView> */}
+      </ScrollView>
+
+      {/* Cute Songs */}
+      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
+        Cute & Chill
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={tailwind`mt-2`}
+      >
+        {cuteSongs.map((item, index) => (
+          <View key={index} style={tailwind`mr-4`}>
+            <SongCard item={item} />
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Horror Songs */}
+      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
+        Dark & Mysterious
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
+        {horrorSongs.map((item, index) => (
+          <View key={index} style={tailwind`mr-4`}>
+            <SongCard item={item} />
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Country Songs */}
+      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
+        Country Roads
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
+        {countrySongs.map((item, index) => (
+          <View key={index} style={tailwind`mr-4`}>
+            <SongCard item={item} />
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Reggae Songs */}
+      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
+        Reggae Rhythms
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
+        {reggaeSongs.map((item, index) => (
+          <View key={index} style={tailwind`mr-4`}>
+            <SongCard item={item} />
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Blues Songs */}
+      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
+        Blues Collection
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
+        {bluesSongs.map((item, index) => (
+          <View key={index} style={tailwind`mr-4`}>
+            <SongCard item={item} />
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Folk Songs */}
+      <Text style={tailwind`text-white font-bold text-[19px] mt-6`}>
+        Folk Essentials
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tailwind`mt-2`}>
+        {folkSongs.map((item, index) => (
+          <View key={index} style={tailwind`mr-4`}>
+            <SongCard item={item} />
+          </View>
+        ))}
+      </ScrollView>
     </ScrollView>
   );
 };

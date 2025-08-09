@@ -42,7 +42,8 @@
     "react-native-uuid": "^2.0.3",
     "react-native-web": "~0.20.0",
     "twrnc": "^3.4.0",
-    "zustand": "^5.0.6"
+    "zustand": "^5.0.6",
+    "expo-navigation-bar": "~4.2.7"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

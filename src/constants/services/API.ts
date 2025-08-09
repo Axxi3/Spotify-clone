@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Song, Album, Artist, Radio } from "./Models";
+import { CUTE_SONGS, MOCK_TRACKS, POP_SONGS, ROCK_SONGS, ROMANTIC_SONGS } from './Mockdata';
 
 
 const JAMENDO_API = 'https://api.jamendo.com/v3.0';
@@ -10,57 +11,127 @@ const api = axios.create({
   params: {
     client_id: CLIENT_ID,
     format: 'json',
-  },
+  }, 
 });
 
 export const fetchTopTracks = async (): Promise<Song[]> => {
-  try {
-    const { data } = await api.get('/tracks', {
-      params: {
-        limit: 10,
-        order: 'popularity_total',
-      },
-    });
-
-    if (!data.results || data.results.length === 0) return [];
-
-    return data.results.map((track: any): Song => ({
-      id: track.id,
-      title: track.name,
-      artist: track.artist_name,
-      image: track.album_image || track.image || 'https://via.placeholder.com/300?text=No+Image',
-      audioUrl: track.audio,
-    }));
-  } catch (err) {
-    console.error('Failed to fetch top tracks:', err);
-    return [];
-  }
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(MOCK_TRACKS);
+    }, 300); // simulate slight network delay
+  });
 };
 
-export const searchSongs = async (query: string, limit: number = 10): Promise<Song[]> => {
-  try {
-    const { data } = await api.get('/tracks', {
-      params: {
-        limit,
-        namesearch: query,
-        include: 'musicinfo',
-        audioformat: 'mp31',
-      },
-    });
+// API for Pop Songs
+export const fetchPopSongs = async (): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(POP_SONGS);
+    }, 300); // simulate slight network delay
+  });
+};
 
-    if (!data.results || !Array.isArray(data.results)) return [];
+// API for Rock Songs
+export const fetchRockSongs = async (): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(ROCK_SONGS);
+    }, 300); // simulate slight network delay
+  });
+};
 
-    return data.results.map((track: any): Song => ({
-      id: track.id.toString(),
-      title: track.name,
-      artist: track.artist_name,
-      image: track.album_image,
-      audioUrl: track.audio,
-    }));
-  } catch (error) {
-    console.error('Jamendo fetch error:', error);
-    return [];
-  }
+// API for Romantic Songs
+export const fetchRomanticSongs = async (): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(ROMANTIC_SONGS);
+    }, 300); // simulate slight network delay
+  });
+};
+
+// API for Cute Songs
+export const fetchCuteSongs = async (): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(CUTE_SONGS);
+    }, 300); // simulate slight network delay
+  });
+};
+
+export const searchSongs = async (query: string): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Get all songs with unique IDs
+      const allSongs = [
+        ...MOCK_TRACKS.map(song => ({ ...song, id: `track_${song.id}` })),
+        ...POP_SONGS.map(song => ({ ...song, id: `pop_${song.id}` })),
+        ...ROCK_SONGS.map(song => ({ ...song, id: `rock_${song.id}` })),
+        ...ROMANTIC_SONGS.map(song => ({ ...song, id: `romantic_${song.id}` })),
+        ...CUTE_SONGS.map(song => ({ ...song, id: `cute_${song.id}` })),
+      ];
+
+      // If no query provided, return all songs
+      if (!query || query.trim() === '') {
+        resolve(allSongs);
+        return;
+      }
+
+      // Filter songs based on query with null checks
+      const filteredSongs = allSongs.filter(song => {
+        const title = song.title?.toLowerCase() || '';
+        const artist = song.artist?.toLowerCase() || '';
+        const album = song.album?.toLowerCase() || '';
+        const searchQuery = query.toLowerCase();
+        
+        return title.includes(searchQuery) ||
+               artist.includes(searchQuery) ||
+               album.includes(searchQuery);
+      });
+
+      resolve(filteredSongs);
+    }, 300);
+  });
+};
+
+
+export const fetchHorrorSongs = async (): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([...MOCK_TRACKS].reverse()); // Reverse for different order
+    }, 300);
+  });
+};
+
+export const fetchCountrySongs = async (): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([...POP_SONGS].reverse());
+    }, 300);
+  });
+};
+
+export const fetchReggaeSongs = async (): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([...ROCK_SONGS].reverse());
+    }, 300);
+  });
+};
+
+export const fetchBluesSongs = async (): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([...ROMANTIC_SONGS].reverse());
+    }, 300);
+  });
+};
+
+export const fetchFolkSongs = async (): Promise<Song[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([...CUTE_SONGS].reverse());
+    }, 300);
+  });
 };
 
 export const fetchTracksByGenre = async (genre: string): Promise<Song[]> => {
@@ -88,7 +159,7 @@ export const fetchTracksByGenre = async (genre: string): Promise<Song[]> => {
   }
 };
 
-export const fetchTopAlbums = async (): Promise<Album[]> => {
+export const  fetchTopAlbums = async (): Promise<Album[]> => {
   try {
     const { data } = await api.get('/albums', {
       params: {

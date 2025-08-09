@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router'; // Add this import
 import { 
   ArrowLeft, 
   Search, 
@@ -32,6 +33,7 @@ const LikedSongsScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter(); // Add router
 
   // Make loadLikedSongs a useCallback to prevent recreation on every render
   const loadLikedSongs = useCallback(async () => {
@@ -76,8 +78,46 @@ const LikedSongsScreen = () => {
     );
   }, [likedSongs, searchQuery]);
 
+  // Updated handleSongPress to navigate to music player with single song
   const handleSongPress = (song: Song) => {
     console.log('Playing song:', song.title);
+    
+    // Create array with just the selected song
+    const songArray = [song];
+    const encodedSongs = encodeURIComponent(JSON.stringify(songArray));
+    router.push(`/musicplayer?songs=${encodedSongs}`);
+  };
+
+  // New function to handle playing all liked songs
+  const handlePlayAllSongs = () => {
+    if (filteredSongs.length === 0) {
+      Alert.alert('No Songs', 'No songs available to play');
+      return;
+    }
+
+    console.log('Playing all songs:', filteredSongs.length, 'songs');
+    
+    // Use filtered songs if there's a search, otherwise use all liked songs
+    const songsToPlay = filteredSongs.length > 0 ? filteredSongs : likedSongs;
+    const encodedSongs = encodeURIComponent(JSON.stringify(songsToPlay));
+    router.push(`/musicplayer?songs=${encodedSongs}`);
+  };
+
+  // New function to handle shuffle play
+  const handleShufflePlay = () => {
+    if (filteredSongs.length === 0) {
+      Alert.alert('No Songs', 'No songs available to shuffle');
+      return;
+    }
+
+    console.log('Shuffling and playing songs');
+    
+    // Shuffle the songs array
+    const songsToPlay = filteredSongs.length > 0 ? [...filteredSongs] : [...likedSongs];
+    const shuffledSongs = songsToPlay.sort(() => Math.random() - 0.5);
+    
+    const encodedSongs = encodeURIComponent(JSON.stringify(shuffledSongs));
+    router.push(`/musicplayer?songs=${encodedSongs}`);
   };
 
   const handleRemoveFromLiked = async (songId: string) => {
@@ -94,7 +134,7 @@ const LikedSongsScreen = () => {
   const renderSongItem = ({ item }: { item: Song }) => (
     <TouchableOpacity 
       style={tw`flex-row items-center py-3 px-4`} 
-      onPress={() => handleSongPress(item)}
+      onPress={() => handleSongPress(item)} // This will play the single song
     >
       <Image 
         source={{ uri: item.image }} 
@@ -119,7 +159,28 @@ const LikedSongsScreen = () => {
           </Text>
         </View>
       </View>
-      <TouchableOpacity style={tw`p-2`}>
+      <TouchableOpacity 
+        style={tw`p-2`}
+        onPress={(e) => {
+          e.stopPropagation(); // Prevent triggering the song press
+          // You can add more options here like remove from liked, add to playlist etc.
+          Alert.alert(
+            'Song Options',
+            `Options for "${item.title}"`,
+            [
+              {
+                text: 'Remove from Liked',
+                onPress: () => handleRemoveFromLiked(item.id),
+                style: 'destructive'
+              },
+              {
+                text: 'Cancel',
+                style: 'cancel'
+              }
+            ]
+          );
+        }}
+      >
         <MoreVertical size={20} color="#9CA3AF" />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -144,14 +205,14 @@ const LikedSongsScreen = () => {
     <View>
       {/* Top Navigation */}
       <View style={tw`flex-row items-center justify-between px-4 pt-4 pb-6`}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}>
           <ArrowLeft size={24} color="white" />
         </TouchableOpacity>
       </View>
 
       {/* Search and Sort */}
       <View style={tw`flex-row items-center px-4 mb-8`}>
-        <View style={tw`flex-1 flex-row h-[50px] items-center bg-gray-800 bg-opacity-50 rounded-lg px-4  mr-3`}>
+        <View style={tw`flex-1 flex-row h-[50px] items-center bg-gray-800 bg-opacity-50 rounded-lg px-4 mr-3`}>
           <Search size={20} color="#9CA3AF" />
           <TextInput
             style={tw`flex-1 ml-3 text-white text-base`}
@@ -167,7 +228,7 @@ const LikedSongsScreen = () => {
       <View style={tw`px-4 mb-6`}>
         <Text style={tw`text-white text-3xl font-bold mb-2`}>Liked Songs</Text>
         <Text style={tw`text-gray-400 text-base`}>
-          {likedSongs.length} songs
+          {filteredSongs.length} songs
         </Text>
       </View>
 
@@ -177,12 +238,15 @@ const LikedSongsScreen = () => {
           <TouchableOpacity style={tw`mr-8`}>
             <Download size={28} color="#9CA3AF" />
           </TouchableOpacity>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={handleShufflePlay}>
             <Shuffle size={28} color="#1DB954" />
           </TouchableOpacity>
         </View>
+        {/* Green Play Button - Plays all songs */}
         <TouchableOpacity 
           style={tw`w-14 h-14 bg-green-500 rounded-full items-center justify-center`}
+          onPress={handlePlayAllSongs} // This will play all songs
+          disabled={filteredSongs.length === 0}
         >
           <Play size={20} color="black" fill="black" />
         </TouchableOpacity>
